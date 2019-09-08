@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="friend">
+
+<!-- *************friend_req**************** -->
+	<!-- 친구 요청 -->
+	<insert id="firendsRequest" parameterType="friend_reqVo">
+		insert into friend_req
+		values (req_seq.nextval, #{user_email}, #{req_email}, sysdate, 'FR01', sysdate)
+	</insert>
+	
+	<!-- 친구 요청 리스트 -->
+	<select id="friendsRequestList" parameterType="string" resultType="friend_reqVo">
+		  SELECT DISTINCT A.REQ_EMAIL
+		    ,  A.USER_EMAIL
+		    ,  C.USER_NM
+		  FROM    FRIEND_REQ A, USERS C
+		  WHERE   A.REQ_EMAIL = #{REQ_EMAIL}
+		  AND     A.USER_EMAIL = C.USER_EMAIL
+		  AND     C.USER_EMAIL = A.USER_EMAIL
+		  AND     A.REQ_ST = 'FR01'
+	</select>
+	
+	<!-- 친구 요청 수락 -->
+	<insert id="accerptFriendRequest" parameterType="friendsVo">
+		insert into friends
+		values (#{user_email}, #{frd_email}, sysdate)	
+	</insert>
+	
+	<!-- 친구 요청 상태를 수락으로 바꿔줌 -->
+	<update id="updateReqAccept" parameterType="friend_reqVo">
+		update friend_req
+		set req_st = 'FR02'
+		where user_email = #{user_email}
+		and req_email = #{req_email}
+	</update>
+	
+	<!-- 친구 요청 거절 -->
+	<delete id="deleteFriendRequest" parameterType="string">
+		delete friend_req 
+		where user_email = #{user_email}
+	</delete>
+	
+	<!-- 친구 요청 상태를 거절로 바꿔줌 -->
+	<update id="updateReqDeny" parameterType="friend_reqVo">
+		update friend_req
+		set req_st = 'FR03'
+		where user_email = #{user_email}
+		and req_email = #{req_email}
+	</update>
+	
+	<!-- 친구 정보 조회 -->
+	<select id="getFriend" parameterType="string" resultType="friendsVo">
+		select *
+		from friends
+		where user_email = #{user_email}
+	</select>
+	
+<!-- *************friends**************** -->
+	<!-- 전체 친구 리스트 조회(채팅에서 사용)-->
+	<select id="allFriendList" parameterType="string" resultType="chatFriendsVo">
+		select frd_email, u.user_nm 
+		from friends f , users u
+		where f.frd_email = u.user_email
+		and f.user_email= #{user_email}
+	</select>
+
+	<!-- 채팅방별 친구 리스트 조회 -->
+	<select id="roomFriendList">
+		
+	</select>
+
+	<!-- 친구 등록 -->
+	<insert id="insertFriends" parameterType="friendsVo">
+		insert into friends
+		values (#{user_email}, #{frd_email}, sysdate)
+	</insert>
+	
+	<!-- 친구 페이징 리스트 -->
+	<select id="friendPagingList" parameterType="map" resultType="friendsVo">
+		<![CDATA[	
+		 SELECT *
+        FROM
+        (SELECT A.FRD_EMAIL, B.USER_NM, ROWNUM RN
+        FROM
+        (SELECT A.FRD_EMAIL
+        FROM FRIENDS A
+        WHERE A.USER_EMAIL like '%'||#{user_email}||'%') A, USERS B
+        WHERE A.FRD_EMAIL = B.USER_EMAIL)
+        where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+		]]>
+	</select>
+	
+	<!-- 친구 페이징 리스트 수 -->
+	<select id="friendPagingCnt" parameterType="map" resultType="int">
+		select count(*)
+		from friends
+		where user_email like '%'||#{user_email}||'%'
+	</select>
+	
+	<!-- 일반 사용자가 자신의 친구 목록을  친구의 이메일로 검색 -->
+	<select id="friendSearchByEmail" parameterType="map" resultType="friendsVo">
+		<![CDATA[
+			SELECT *
+			FROM
+			(SELECT A.FRD_EMAIL, B.USER_NM, ROWNUM RN
+			FROM
+			(SELECT *
+			FROM FRIENDS 
+			WHERE FRD_EMAIL like '%'||#{frd_email}||'%'
+			AND USER_EMAIL = #{user_email}) A, USERS B
+			WHERE A.FRD_EMAIL = B.USER_EMAIL)
+			where rn >= (#{page}-1)*#{pageSize} + 1 and rn <= #{page}*#{pageSize}
+		]]>
+	</select>
+	<!-- 일반 사용자가 자신의 친구 목록을 친구의 이메일로 검색한 갯수 -->
+	<select id="friendSearchByEmailCnt" parameterType="map" resultType="int">
+		<![CDATA[
+			select count(*)
+			from
+			(SELECT *
+			FROM
+			(SELECT A.FRD_EMAIL, B.USER_NM, ROWNUM RN
+			FROM
+			(SELECT *
+			FROM FRIENDS 
+			WHERE FRD_EMAIL like '%'||#{frd_email}||'%'
+			AND USER_EMAIL = #{user_email}) A, USERS B
+			WHERE A.FRD_EMAIL = B.USER_EMAIL)
+			where rn >= (#{page}-1)*#{pageSize} + 1 and rn <= #{page}*#{pageSize})c
+		]]>
+	</select>
+	
+	<!-- 일반 사용자가 자신의 친구를 삭제 -->
+	<delete id="deleteFriends" parameterType="string">
+		delete friends 
+		where frd_email = #{frd_email}
+		and user_email = #{user_email}
+	</delete>
+	
+	<!-- 일반 사용자가 자신의 친구를 삭제하면 상대 방도 친구 삭제  -->
+	<delete id="deleteFriends2" parameterType="string">
+		delete friends 
+		where frd_email = #{frd_email}
+		and user_email = #{user_email}
+	</delete>
+	
+	<!-- 프로젝트 멤버에서 이미 친구인 사람의 친구 요청 버튼을 비활성화 시키기 위해서
+		 친구 목록을 조회하여 이미 친구 이면 비활성화 -->
+	<select id="friendsList" parameterType="string" resultType="friendsVo">
+		select *
+		from friends
+		where user_email = #{user_email}
+	</select>
+	
+</mapper>

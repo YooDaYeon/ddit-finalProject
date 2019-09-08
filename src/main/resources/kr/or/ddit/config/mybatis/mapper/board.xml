@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="board">
+
+<!-- **********************board********************* -->
+	
+	<!-- 게시판 생성 -->
+	<insert id="insertBoard" parameterType="boardVo">
+		insert into board values (BOARD_SEQ.nextval,#{name},sysdate,#{use_fl})
+	</insert>
+	
+	<!-- 게시판 전체 리스트 -->
+	<select id="boardList" resultType="boardVo">
+		select * from board order by board_id
+	</select>
+	
+	<!-- 게시판 이용가능 리스트 -->
+	<select id="boardListYes" resultType="boardVo">
+		select * 
+		from board
+		where use_fl = 'Y'
+		order by board_id
+	</select>
+	
+	<!-- 게시판 수정 -->
+	<update id="updateBoard" parameterType="boardVo">
+		update board
+		set use_fl = #{use_fl},name = #{name}
+		where board_id = #{board_id}
+	</update>
+	
+	
+	
+<!-- **********************board_answer********************* -->
+	<!-- 게시글 댓글 작성 -->
+	<insert id="insertReply" parameterType="board_answerVo">
+		insert into board_answer values(board_answer_seq.nextval,#{write_id},#{user_email},#{content},sysdate,'N')
+	</insert>
+	
+	<!-- 게시글댓글리스트 조회 -->
+	<select id="replyList" parameterType="int" resultType="board_answerVo">
+		select a.*, rownum rn
+		from
+		(select * 
+		from board_answer 
+		where write_id = #{write_id}
+		order by comm_id desc)a
+	</select>
+	
+	<!-- 게시글댓글 수정 -->
+	<update id="updateReply" parameterType="board_answerVo">
+		update board_answer set content = #{content} where comm_id = #{comm_id}
+	</update>
+	
+	<!-- 게시글댓글 삭제 -->
+	<delete id="deleteReply" parameterType="int">
+		delete 
+		from board_answer
+		where comm_id= #{comm_id}
+	</delete>
+	
+	<!-- 게시글별 댓글 개수 -->
+	<select id="replyCnt" resultType="int" parameterType="int">
+		select count(*) from board_answer where write_id = #{write_id}
+	</select>
+	
+	<!-- 내가 작성한 댓글 리스트 -->
+	<select id="myReplyList" parameterType="String" resultType="board_answerVo">
+		select *
+		from board_answer
+		where user_email=#{user_email}
+	</select>
+	
+	
+<!-- **********************board_file********************* -->
+
+
+<!-- **********************board_write********************* -->
+	<!-- 게시글 작성 -->
+	<insert id="insertPost" parameterType="board_writeVo">
+		insert into board_write values(board_write_seq.nextval,#{board_id},#{user_email},#{subject},#{content},sysdate,0,0,'N')
+	</insert>
+	
+	<!-- 게시글 조회 -->
+	<select id="postInfo" parameterType="int" resultType="board_writeVo">
+		select *
+		from board_write
+		where write_id = #{write_id}
+	</select>
+	
+	<!-- 게시판별 게시글 페이징리스트 -->
+	<select id="boardPostList" parameterType="pageVo" resultType="board_writeVo">
+	 <![CDATA[
+		select *
+	    from
+		(select a.*, ROW_NUMBER() OVER(order by write_id desc) rn
+	    from
+	    (select a.*
+	    from board_write a 
+	    where board_id = #{board_id}
+	    and del_yn='N'
+	    order by write_id desc) a)
+	    where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+    ]]>
+	</select>
+	
+	<!-- 게시판별 자신만의 게시글 페이징리스트 -->
+	<select id="myBoardPostList" parameterType="pageVo" resultType="board_writeVo">
+	 <![CDATA[
+		select *
+	    from
+		(select a.*, ROW_NUMBER() OVER(order by write_id desc) rn
+	    from
+	    (select a.*
+	    from board_write a 
+	    where board_id = #{board_id}
+	    and del_yn='N'
+	    and user_email = #{user_email}
+	    order by write_id desc) a)
+	    where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+    ]]>
+	</select>
+	
+	<!-- 게시글 수정 -->
+	<update id="updatePost" parameterType="board_writeVo">
+		update board_write set 
+		    subject=#{subject},
+		    content=#{content}
+		where write_id= #{write_id}
+	</update>
+	
+	<!-- 게시글 삭제 -->
+	<update id="deletePost" parameterType="int">
+		update board_write set 
+		    del_yn='Y'
+		where write_id= #{write_id}
+	</update>
+	
+	<!-- 게시판별 게시글 개수 -->
+	<select id="postCnt" parameterType="int" resultType="int">
+		select count(*) 
+		from board_write
+		where board_id = #{board_id}
+		and del_yn='N'
+	</select>
+	
+	<!-- 내가 쓴 게시글 개수 -->
+	<select id="myPostCnt" parameterType="pageVo" resultType="int">
+		select count(*) 
+		from board_write 
+		where board_id = #{board_id}
+		and user_email=#{user_email}
+		and del_yn='N'
+	</select>
+	
+	<!-- 게시글 조회수 증가 -->
+	<update id="postViewCnt" parameterType="int">
+		update board_write
+		set view_cnt = view_cnt + 1
+		where write_id= #{write_id}
+	</update>
+	
+	
+	<!-- 게시글 join -->
+	<select id="postReplyList" parameterType="map" resultType="postReplyVo">
+	select a.write_id,a.user_email,a.subject,a.writedate,b.comm_id,b.content from (select * from board_write)a inner join    
+              (select * from board_answer)b on 
+				a.write_id = b.write_id and a.user_email = #{user_email}
+	</select>
+	
+	
+	<!-- 게시글 제목 검색 -->
+	<select id="selectTitle" parameterType="pageVo" resultType="board_writeVo">
+		<![CDATA[
+			select *
+		    from
+			(select a.*, ROW_NUMBER() OVER(order by write_id desc) rn
+		    from
+		    (select a.*
+		    from board_write a 
+		    where board_id = #{board_id}
+		    and del_yn='N'
+		    and subject like '%' || #{subject} || '%'
+		    order by write_id desc) a)
+		    where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	    ]]>
+	</select>
+	
+	<!-- 게시글 내용 검색 -->
+	<select id="selectContent" parameterType="pageVo" resultType="board_writeVo">
+		<![CDATA[
+			select *
+		    from
+			(select a.*, ROW_NUMBER() OVER(order by write_id desc) rn
+		    from
+		    (select a.*
+		    from board_write a 
+		    where board_id = #{board_id}
+		    and del_yn='N'
+		    and content like '%' || #{content} || '%'
+		    order by write_id desc) a)
+		    where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	    ]]>
+	</select>
+	
+	<!-- 검색한 제목의 글 개수 -->
+	<select id="selectTitleCnt" parameterType="string"  resultType="int">
+		select count(*) 
+		from board_write
+		where subject like '%' || #{subject} || '%'
+		and del_yn='N'
+	</select>
+	
+	
+	<!-- 검색한 내용의 글 개수 -->
+	<select id="selectContentCnt" parameterType="string"  resultType="int">
+		select count(*) 
+		from board_write
+		where content like '%' || #{content} || '%'
+		and del_yn='N'
+	</select>
+	
+	<!-- *****************내가 작성한 게시글 검색 ****************************** -->
+	
+	<!-- 게시글 제목 검색 -->
+	<select id="mySelectTitle" parameterType="pageVo" resultType="board_writeVo">
+		<![CDATA[
+			select *
+		    from
+			(select a.*, ROW_NUMBER() OVER(order by write_id desc) rn
+		    from
+		    (select a.*
+		    from board_write a 
+		    where board_id = #{board_id}
+		    and del_yn='N'
+		    and subject like '%' || #{subject} || '%'
+		    and user_email = #{user_email}
+		    order by write_id desc) a)
+		    where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	    ]]>
+	</select>
+	
+	<!-- 게시글 내용 검색 -->
+	<select id="mySelectContent" parameterType="pageVo" resultType="board_writeVo">
+		<![CDATA[
+			select *
+		    from
+			(select a.*, ROW_NUMBER() OVER(order by write_id desc) rn
+		    from
+		    (select a.*
+		    from board_write a 
+		    where board_id = #{board_id}
+		    and del_yn='N'
+		    and content like '%' || #{content} || '%'
+		    and user_email = #{user_email}
+		    order by write_id desc) a)
+		    where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	    ]]>
+	</select>
+	
+	<!-- 검색한 제목의 글 개수 -->
+	<select id="mySelectTitleCnt" parameterType="pageVo"  resultType="int">
+		select count(*) 
+		from board_write
+		where subject like '%' || #{subject} || '%'
+		and del_yn='N'
+		and user_email = #{user_email}
+	</select>
+	
+	
+	<!-- 검색한 내용의 글 개수 -->
+	<select id="mySelectContentCnt" parameterType="pageVo"  resultType="int">
+		select count(*) 
+		from board_write
+		where content like '%' || #{content} || '%'
+		and del_yn='N'
+		and user_email = #{user_email}
+	</select>
+	
+<!-- **********************likes*************************** -->
+	<!-- 게시글 좋아요 중복 체크 -->
+	<select id="like_check" parameterType="map" resultType="int">
+		select count(*) 
+		from likes
+		where BOARD_ID=#{board_id} 
+		and LIKE_ID=#{like_id}
+		and USER_EMAIL = #{user_email}
+	</select>
+	
+	<!-- 게시글 좋아요 증가 -->	
+	<update id="likeAdd" parameterType="board_writeVo">
+		update board_write
+		set like_cnt = like_cnt + 1
+		where write_id= #{write_id}
+	</update>
+	
+	<!-- 게시글의 좋아요를 내가 눌렀다는 정보가 들어감  -->
+	<insert id="whoLikeAdd" parameterType="board_writeVo">
+		insert into likes values(board_likes_seq.nextval,#{board_id},#{write_id},#{user_email})
+	</insert>
+	
+	
+	<!-- 게시글 좋아요 감소 -->
+	<update id="likeDown" parameterType="board_writeVo">
+		update board_write
+		set like_cnt = like_cnt - 1
+		where write_id= #{write_id}
+	</update>
+	
+	<!-- 게시글의 좋아요를 취소하면 게시글에 내가 좋아요 했다는 정보가 사라짐 -->
+	<delete id="whoLikeDown" parameterType="board_writeVo">
+		delete from likes where write_id = #{write_id} and user_email = #{user_email}
+	</delete>
+	
+	<!-- 게시글 좋아요 개수 -->
+	<select id="likeCnt" parameterType="int" resultType="int">
+		select like_cnt from board_write where write_id=#{write_id}
+	</select>
+	
+	<!-- 게시글에 내가 좋아요를 눌렀는지 확인 -->
+	<select id="likePushCheck" parameterType="board_writeVo" resultType="int">
+		select count(*)
+		from likes
+		where user_email = #{user_email}
+		and write_id = #{write_id}
+	</select>
+	
+	
+</mapper>

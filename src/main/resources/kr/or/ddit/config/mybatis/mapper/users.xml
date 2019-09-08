@@ -1,0 +1,171 @@
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="user">
+
+<!-- ******************* users ******************* -->
+
+<!-- 특정한 일반 사용자 조회 -->
+<select id="getUser" parameterType="string" resultType="userVo">
+	select *
+	from users
+	where user_email = #{user_email}
+</select>
+
+<!-- 일반 사용자 등록 -->
+<insert id="insertUser" parameterType="userVo">
+	insert into users(user_email,user_pass,user_nm,user_hp,user_right,user_st,count_notify,count_message)
+	values (#{user_email},#{user_pass},#{user_nm},#{user_hp},'U','N',0,0)
+</insert>
+
+<!-- 일반 사용자 삭제 -->
+<delete id="deleteUser" parameterType="string">
+	delete users where user_email = #{user_email}
+</delete>
+
+<!-- 일반 사용자 비밀번호 수정 -->
+<update id="updateUserPass" parameterType="userVo">
+	update users 
+	set user_pass = #{user_pass}
+	where user_email = #{user_email}	 
+</update>
+
+<!-- 일반 사용자 알림 설정 -->
+<insert id="insertUserNotice" parameterType="notification_setVo">
+	insert into notification_set 
+	values (not_set_seq.nextval, #{user_email}, #{not_cd}, 'N')
+</insert>	
+
+<!-- 휴면 계정 설정 -->
+<update id="updateUserStatus" parameterType="userVo">
+	update users
+	set user_st = 'Y'
+	where user_email = #{user_email}
+</update>
+
+<!-- 일반 사용자 프로필 업데이트 -->
+<update id="updateUserProfile" parameterType="userVo">
+	update users
+	set user_nm = #{user_nm}, user_hp = #{user_hp}
+	where user_email = #{user_email}
+</update>
+
+<!-- 사용자 페이지 리스트 조회 -->
+<!-- pageVo int page, int pageSize -->
+<select id="userPagingList" parameterType="pageVo" resultType="userVo">
+	<![CDATA[
+	select *
+	from
+		(select a.*, rownum rn
+			 from
+				(select a.*
+				 from users a
+				order by user_email) a )
+	where rn >= (#{page}-1)*#{pageSize} + 1 and rn <= #{page}*#{pageSize}
+	]]>
+</select>
+
+<!-- 전체 사용자 리스트 조회 -->
+<select id="userList" resultType="userVo">
+	select *
+	from users
+	order by
+	user_email
+</select>
+
+<!-- 사용자 전체수 조회 -->
+<select id="userCnt" resultType="int">
+	select count(*)
+	from users
+</select>
+
+<!-- ******************* 관리자 - 회원 관리 ******************* -->
+
+<!-- 관리자가 사용자 정보 수정 -->
+<update id="updateUserAdm" parameterType="userVo">
+	update users
+	set user_email = #{user_email}, user_nm = #{user_nm}
+	   ,user_hp = #{user_hp}, user_st = #{user_st}
+	where user_email = #{user_email}
+</update>
+
+<!-- 관리자가 회원 리스트를 회원의 이메일로 검색 후 페이징 리스트 조회 -->
+<select id="userSearchByEmail" parameterType="map" resultType="userVo">
+	<![CDATA[
+		select *
+		from
+		(select a.*, rownum rn
+		from
+		(select a.*
+		from users a
+		where user_email like '%'||#{user_email}||'%') a)
+		where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	]]>
+</select>
+<!-- 관리자가 회원 리스트를 회원의 이메일로 검색한 갯수 -->
+<select id="userSearchByEmailCnt" parameterType="map" resultType="int">
+	select count(*)
+	from users
+	where user_email like '%'||#{user_email}||'%'
+</select>
+<!-- 관리자가 회원 리스트를 회원의 이름으로 검색 후 페이징 리스트 조회 -->
+<select id="userSearchByName" parameterType="map" resultType="userVo">
+	<![CDATA[
+		select *
+		from
+		(select a.*, rownum rn
+		from
+		(select a.*
+		from users a
+		where user_nm like '%'||#{user_nm}||'%') a)
+		where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	]]>
+</select>
+
+<!-- 관리자가 회원 리스트를 회원의 이름으로 검색한 갯수 -->
+<select id="userSearchByNameCnt" parameterType="map" resultType="int">
+	select count(*)
+	from users
+	where user_nm like '%'||#{user_nm}||'%'
+</select>
+<!-- 관리자가 회원 리스트를 회원의 전화번호로 검색 후 페이징 리스트 조회 -->
+<select id="userSearchByHp" parameterType="map" resultType="userVo">
+	<![CDATA[
+		select *
+		from
+		(select a.*, rownum rn
+		from
+		(select a.*
+		from users a
+		where user_hp like '%'||#{user_hp}||'%') a)
+		where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	]]>
+</select>
+<!-- 관리자가 회원 리스트를 회원의 전화번호로 검색한 갯수 -->
+<select id="userSearchByHpCnt" parameterType="map" resultType="int">
+	select count(*)
+	from users
+		where user_hp like '%'||#{user_hp}||'%'
+</select>
+
+<!-- ******************* count_notify ******************* -->
+	<update id="plusCount" parameterType="String">
+		update users
+		set count_notify = count_notify+1
+		where user_email = #{user_email}
+	</update>
+	<update id="resetCount" parameterType="String">
+		update users
+		set count_notify = 0
+		where user_email = #{user_email}
+	</update>
+	
+	<select id="countCnt" parameterType="String" resultType="int">
+		select count_notify
+		from users
+		where user_email=#{user_email}
+	</select>
+<!-- ******************* mail_confirm ******************* -->
+
+
+</mapper>

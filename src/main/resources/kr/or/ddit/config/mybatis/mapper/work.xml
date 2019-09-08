@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="work">
+
+<!-- ******************work**************** -->
+	<update id="updateWork" parameterType="workVo">
+		UPDATE	WORK
+		SET		WRK_LST_ID = #{wrk_lst_id}
+				,WRK_PR_ID = #{wrk_pr_id}
+				,USER_EMAIL = #{user_email}
+				,WRK_NM = #{wrk_nm}
+				,WRK_GRADE = #{wrk_grade}
+				,WRK_COLOR_CD = #{wrk_color_cd, jdbcType=VARCHAR}
+				,WRK_START_DT = #{wrk_start_dt}
+				,WRK_END_DT = #{wrk_end_dt}
+				,WRK_CMP_DT = #{wrk_cmp_dt, jdbcType=DATE}
+				,WRK_CMP_FL = #{wrk_cmp_fl}
+				,WRK_DEL_FL = #{wrk_del_fl}
+		WHERE	WRK_ID = #{wrk_id}
+	</update>
+	
+	<!-- 업무리스트에 해당하는 업무 조회-->
+	<select id="getWork" parameterType="int" resultType="workVo">
+		SELECT  DISTINCT    C.PRJ_ID
+						,  D.PRJ_NM
+						,  A.WRK_LST_ID  
+					        ,  C.WRK_LST_NM 
+					        ,  A.WRK_ID
+					        ,  A.WRK_NM
+					        ,  C.DEL_FL
+					        ,  A.USER_EMAIL
+					        ,  B.USER_NM
+					        ,  A.WRK_RV_ID
+					        ,  A.WRK_PR_ID
+					        ,  A.WRK_DT
+					        ,  A.WRK_GRADE
+					        ,  A.WRK_COLOR_CD
+					        ,  A.WRK_START_DT
+					        ,  A.WRK_END_DT
+					        ,  A.WRK_CMP_DT
+					        ,  A.WRK_CMP_FL
+					        ,  A.WRK_DEL_FL
+   		FROM    			WORK A, USERS B, WORK_LIST C, PROJECT D
+      		WHERE			A.WRK_LST_ID = #{wrk_lst_id}
+     		AND				A.USER_EMAIL = B.USER_EMAIL
+      		AND				A.WRK_LST_ID = C.WRK_LST_ID
+      		AND				C.PRJ_ID = D.PRJ_ID
+      		AND     			C.DEL_FL = 'N'
+      		AND     			A.WRK_DEL_FL = 'N'
+	</select>
+	
+	<!-- 업무 카운트 > 다시 해야함 -->
+	<select id="getWorkListCnt" parameterType="workVo" resultType="workVo">
+		SELECT  	COUNT(*) wrkListCnt, A.WRK_LST_ID
+		FROM    	WORK A, WORK_LIST B
+		WHERE   	A.WRK_LST_ID = B.WRK_LST_ID
+		AND     	A.WRK_LST_ID = #{wrk_lst_id}
+		AND     	A.WRK_CMP_FL = #{wrk_cmp_fl} GROUP BY A.WRK_LST_ID
+	</select>
+
+	<!--  업무 생성 -->
+	<insert id="insertWork" parameterType="workVo">
+		<selectKey resultType="Integer" keyProperty="wrk_id" order="BEFORE">
+			SELECT WRK_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO WORK (WRK_ID, WRK_LST_ID, WRK_PR_ID, USER_EMAIL, WRK_NM, WRK_DT, WRK_GRADE, WRK_CMP_FL, WRK_DEL_FL)
+		VALUES(#{wrk_id}, #{wrk_lst_id}, #{wrk_id}, #{user_email}, #{wrk_nm}, SYSDATE, 'C', 'N', 'N')
+	</insert>
+	
+	
+	<!-- 업무 이동시 업무 리스트 아이디 업데이트 -->
+	<update id="updateWorkID" parameterType="workVo">
+		UPDATE WORK SET WRK_LST_ID = #{wrk_lst_id} WHERE WRK_ID = #{wrk_id}
+	</update>
+	
+	
+	<!-- 업무 아이디로 업무 정보 얻어오기 -->
+	<select id="getWorkInfo" parameterType="int" resultType="workVo">
+		SELECT A.*, B.USER_NM FROM WORK A, USERS B WHERE WRK_ID = #{wrk_id} AND A.USER_EMAIL = B.USER_EMAIL
+	</select>
+	
+	<!-- 업무 아이디와 사용자 이메일로 업무 정보 얻어오기 -->
+	<select id="getWorkInfo2" parameterType="map" resultType="workVo">
+		SELECT  A.WRK_ID
+		     ,  A.USER_EMAIL
+		     ,  C.WRK_LST_NM
+		     ,  C.PRJ_ID
+		     ,  B.USER_NM
+		     ,  D.PRJ_NM
+		     ,  A.WRK_LST_ID
+		     ,  A.WRK_RV_ID
+		     ,  A.WRK_PR_ID
+		     ,  A.WRK_NM
+		     ,  A.WRK_DT
+		     ,  A.WRK_GRADE
+		     ,  A.WRK_COLOR_CD
+		     ,  A.WRK_START_DT
+		     ,  A.WRK_END_DT
+		     ,  A.WRK_CMP_DT
+		     ,  A.WRK_CMP_FL
+		     ,  A.WRK_DEL_FL
+             ,	(CASE
+                 WHEN E.PRJ_MEM_LV = 'LV0' AND E.PRJ_ID = D.PRJ_ID THEN 'AUTH01'
+                 WHEN D.PRJ_AUTH = 'ASC01' AND E.PRJ_MEM_LV = 'LV1' THEN 'AUTH01'
+                 WHEN D.PRJ_AUTH = 'ASC02' AND E.PRJ_MEM_LV = 'LV1' AND (SELECT F.JN_FL FROM WORK_MEM_FLW F WHERE F.WRK_ID = A.WRK_ID AND F.USER_EMAIL = #{user_email}) = 'M' THEN 'AUTH02'
+                 WHEN D.PRJ_AUTH = 'ASC02' AND E.PRJ_MEM_LV = 'LV1' AND (SELECT F.JN_FL FROM WORK_MEM_FLW F WHERE F.WRK_ID = A.WRK_ID AND F.USER_EMAIL = #{user_email}) = 'F' THEN 'AUTH03'
+                 WHEN D.PRJ_AUTH = 'ASC02' AND E.PRJ_MEM_LV = 'LV1' AND (SELECT F.JN_FL FROM WORK_MEM_FLW F WHERE F.WRK_ID = A.WRK_ID AND F.USER_EMAIL = #{user_email}) IS NULL THEN 'AUTH03'
+                 WHEN D.PRJ_AUTH = 'ASC03' AND E.PRJ_MEM_LV = 'LV1' AND (SELECT F.JN_FL FROM WORK_MEM_FLW F WHERE F.WRK_ID = A.WRK_ID AND F.USER_EMAIL = #{user_email} ) = 'M' THEN 'AUTH02'
+                 WHEN D.PRJ_AUTH = 'ASC03' AND E.PRJ_MEM_LV = 'LV1' AND (SELECT F.JN_FL FROM WORK_MEM_FLW F WHERE F.WRK_ID = A.WRK_ID AND F.USER_EMAIL = #{user_email}) IN 'F' THEN 'AUTH03'
+                 WHEN D.PRJ_AUTH = 'ASC03' AND E.PRJ_MEM_LV = 'LV1' AND (SELECT F.JN_FL FROM WORK_MEM_FLW F WHERE F.WRK_ID = A.WRK_ID AND F.USER_EMAIL = #{user_email} ) IS NULL THEN 'AUTH04'
+                 END) AUTH
+		FROM    WORK A, USERS B, WORK_LIST C, PROJECT D, PROJECT_MEM E
+		WHERE   A.WRK_ID = #{wrk_id}
+		AND     A.USER_EMAIL = B.USER_EMAIL
+		AND     A.WRK_LST_ID = C.WRK_LST_ID
+		AND     C.PRJ_ID = D.PRJ_ID
+        AND     D.PRJ_ID = E.PRJ_ID
+        AND     E.USER_EMAIL = #{user_email}
+	</select>
+	<!-- 업무 완료 체크시 완료 플래그 업데이트 -->
+	<update id="updateWorkCmp" parameterType="workVo">
+		UPDATE WORK SET 	WRK_CMP_FL = #{wrk_cmp_fl},
+							<choose>
+								<when test="wrk_cmp_dt != null">
+									WRK_CMP_DT = NULL
+								</when>
+								<otherwise>
+									WRK_CMP_DT = SYSDATE
+								</otherwise>
+							</choose>
+		WHERE WRK_ID = #{wrk_id}
+	</update>
+	
+	
+	<!-- 업무 전체 업데이트 -->
+	<update id="updateAllWork" parameterType="workVo">
+		UPDATE WORK SET 
+				<if test="wrk_nm != null">
+				 WRK_NM = #{wrk_nm}
+				</if>
+				<if test="wrk_grade != null">
+		                , WRK_GRADE = #{wrk_grade}
+		                </if>
+		                <if test="wrk_start_dt != null">
+		                , WRK_START_DT = #{wrk_start_dt}
+		                </if>
+		                <if test="wrk_end_dt != null">
+		                , WRK_END_DT = #{wrk_end_dt}
+		                </if>
+		WHERE WRK_ID = #{wrk_id}
+	</update>
+	
+	
+	<!-- 업무 라벨 컬러 업데이트 -->
+	<update id="updateWorkColor" parameterType="workVo">
+		UPDATE WORK SET 
+						<choose>
+							<when test="wrk_color_cd != null">
+								WRK_COLOR_CD = #{wrk_color_cd}
+							</when>
+							<otherwise>
+								WRK_COLOR_CD = NULL
+							</otherwise>
+						</choose>
+	 	WHERE WRK_ID = #{wrk_id}
+	</update>
+	
+	
+	<!-- 업무 삭제 (flag update) -->
+	<update id="deleteWork" parameterType="int">
+		UPDATE WORK SET WRK_DEL_FL = 'Y' WHERE WRK_ID = #{wrk_id}
+	</update>	
+	
+	<!-- 예약 알림 아이디 업데이트 -->
+	<update id="updateResID" parameterType="workVo">
+		UPDATE WORK SET WRK_RV_ID = #{wrk_rv_id} WHERE WRK_ID = #{wrk_id}
+	</update>
+	
+
+
+<!-- ******************work_comment**************** -->
+	<!-- 업무코멘트 등록 -->
+	<insert id="commInsert" parameterType="work_commentVo">
+		insert into work_comment values(wrk_comm_seq.nextval,#{prj_id},#{user_email},#{wrk_id},#{comm_content},sysdate,'N')
+	</insert>
+	
+	<!-- 업무코멘트 삭제 -->
+	<update id="commDelete" parameterType="work_commentVo">
+		update work_comment 
+		set del_fl='Y' 
+		where comm_id=#{comm_id} 
+		and prj_id =#{prj_id} 
+	</update>
+	
+	<!-- 업무코멘트 수정 -->
+	<update id="commUpdate" parameterType="work_commentVo">
+		update work_comment 
+		set comm_content=#{comm_content}
+		where comm_id=#{comm_id} 
+		and prj_id =#{prj_id} 
+	</update>
+	
+	<!-- 업무코멘트 조회 -->
+	<select id="commList" parameterType="pageVo" resultType="work_commentVo">
+		<![CDATA[
+	select *
+    from
+	(select a.*, ROW_NUMBER() OVER(order by comm_id desc) rn
+    from
+    (select * 
+		from work_comment 
+		where wrk_id = #{wrk_id}
+		and prj_id = #{prj_id}
+		and del_fl = 'N'
+		order by comm_id desc) a)
+		where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+	]]>
+	</select>
+
+	<select id="commCnt" parameterType="pageVo" resultType="int">
+		select count(*) 
+		from work_comment 
+		where wrk_id = #{wrk_id}
+		and prj_id = #{prj_id}
+	</select>
+<!-- ******************work_list**************** -->
+	
+	<!-- 프로젝트 아이디로  업무 리스트만 조회 -->
+	<select id="workList" parameterType="int" resultType="workVo">
+		SELECT 	  A.WRK_LST_ID
+		     		, A.PRJ_ID
+		     		, A.WRK_LST_NM
+		     		, A.WRK_LST_DT
+		     		, A.DEL_FL 
+		FROM   	  WORK_LIST A 
+		WHERE  	  PRJ_ID = #{prj_id}
+		AND    	  DEL_FL = 'N'
+	</select>
+	
+	<!--  업무리스트 생성 -->
+	<insert id="insertWorkList" parameterType="work_listVo">
+		INSERT INTO WORK_LIST VALUES(WRK_LST_SEQ.NEXTVAL, #{prj_id}, #{wrk_lst_nm}, SYSDATE, 'N')
+	</insert>
+	
+	<!--  업무리스트 이름 수정 -->
+	<update id="updateWorkList" parameterType="work_listVo">
+		UPDATE WORK_LIST SET WRK_LST_NM = #{wrk_lst_nm} WHERE WRK_LST_ID = #{wrk_lst_id}
+	</update>
+	
+	<!--  업무리스트 삭제 (하위 업무가 없는것만 삭제) -->
+	<update id="deleteWorkList" parameterType="int">
+		UPDATE WORK_LIST SET DEL_FL = 'Y' WHERE WRK_LST_ID = #{wrk_lst_id}
+	</update>
+	
+	<!-- 업무 리스트 페이지 리스트 조회 -->
+	<!-- pageVo int page, int pageSize -->
+	<select id="timerWorkListPagingList" parameterType="map" resultType="work_listVo">
+		<![CDATA[
+	    select *
+		from
+		    (select a.*, rownum rn
+		         from
+		            (SELECT  DISTINCT A.WRK_ID
+		               ,  A.USER_EMAIL
+		               ,  C.WRK_LST_NM
+		               ,  C.PRJ_ID
+		               ,  B.USER_NM
+		               ,  D.PRJ_NM
+		               ,  A.WRK_LST_ID
+		               ,  A.WRK_RV_ID
+		               ,  A.WRK_PR_ID
+		               ,  A.WRK_NM
+		               ,  A.WRK_DT
+		               ,  A.WRK_GRADE
+		               ,  A.WRK_COLOR_CD
+		               ,  A.WRK_START_DT
+		               ,  A.WRK_END_DT
+		               ,  A.WRK_CMP_DT
+		               ,  A.WRK_CMP_FL
+		               ,  A.WRK_DEL_FL
+		      FROM    WORK A, USERS B, WORK_LIST C, PROJECT D
+		      WHERE   A.user_email = #{user_email,jdbcType=VARCHAR}
+		      AND     A.USER_EMAIL = B.USER_EMAIL
+		      AND     A.WRK_LST_ID = C.WRK_LST_ID
+		      AND     C.PRJ_ID = D.PRJ_ID
+		      AND     A.WRK_DEL_FL = 'N') a )
+		where rn >=(#{page}-1)*#{pageSize} + 1 and rn <=#{page}*#{pageSize}
+		]]>
+	</select>
+	
+	<!-- 업무 리스트 전체수 조회 -->
+	<select id="timerWorkListCnt" parameterType="map" resultType="int">
+		select count(*)
+		from
+		    (select a.*
+		         from
+		            (SELECT  DISTINCT A.WRK_ID
+		               ,  A.USER_EMAIL
+		               ,  C.WRK_LST_NM
+		               ,  C.PRJ_ID
+		               ,  B.USER_NM
+		               ,  D.PRJ_NM
+		               ,  A.WRK_LST_ID
+		               ,  A.WRK_RV_ID
+		               ,  A.WRK_PR_ID
+		               ,  A.WRK_NM
+		               ,  A.WRK_DT
+		               ,  A.WRK_GRADE
+		               ,  A.WRK_COLOR_CD
+		               ,  A.WRK_START_DT
+		               ,  A.WRK_END_DT
+		               ,  A.WRK_CMP_DT
+		               ,  A.WRK_CMP_FL
+		               ,  A.WRK_DEL_FL
+		      FROM    WORK A, USERS B, WORK_LIST C, PROJECT D
+		      WHERE   A.user_email = #{user_email}
+		      AND     A.USER_EMAIL = B.USER_EMAIL
+		      AND     A.WRK_LST_ID = C.WRK_LST_ID
+		      AND     C.PRJ_ID = D.PRJ_ID
+		      AND     A.WRK_DEL_FL = 'N') a )
+	</select>
+
+<!-- ******************work_mem_flw**************** -->
+
+	
+	<!-- 업무 배정된멤버 / 팔로워 조회 -->
+	<select id="workMemFlwList" resultType="work_mem_flwVo" parameterType="work_mem_flwVo">
+		SELECT A.*, B.USER_NM FROM WORK_MEM_FLW A, USERS B WHERE A.USER_EMAIL = B.USER_EMAIL AND A.WRK_ID = #{wrk_id} AND A.JN_FL = #{jn_fl}
+	</select>
+	
+	<!-- 업무 배정된멤버 / 팔로워 전체 조회 -->
+	<select id="workAllMemFlwList" resultType="work_mem_flwVo" parameterType="int">
+		SELECT A.*, B.USER_NM FROM WORK_MEM_FLW A, USERS B WHERE A.USER_EMAIL = B.USER_EMAIL AND A.WRK_ID = #{wrk_id}
+	</select>
+	
+	<!-- 멤버 조회 -->
+	<select id="getWorkMemFlw" resultType="work_mem_flwVo" parameterType="work_mem_flwVo">
+		SELECT A.*, B.USER_NM FROM WORK_MEM_FLW A, USERS B 
+		WHERE A.USER_EMAIL = B.USER_EMAIL 
+		AND A.WRK_ID = #{wrk_id}
+		AND A.USER_EMAIL = #{user_email}
+	</select>
+
+	<!--  업무 멤버 / 팔로워 등록  -->
+	<insert id="insertWorkMemFlw" parameterType="work_mem_flwVo">
+		INSERT INTO WORK_MEM_FLW VALUES(#{user_email}, #{wrk_id}, #{prj_id}, #{jn_fl})
+	</insert>
+	
+	<!--  멤버 / 팔로워 삭제  -->
+	<delete id="deleteWorkMemFlw" parameterType="work_mem_flwVo">
+		DELETE FROM WORK_MEM_FLW WHERE USER_EMAIL = #{user_email} AND WRK_ID = #{wrk_id}
+	</delete>
+	
+	<!-- 멤버 / 팔로워 M 또는 F로 업데이트 -->
+	<update id="updateWorkMemFlw" parameterType="work_mem_flwVo">
+		UPDATE WORK_MEM_FLW SET JN_FL = #{jn_fl} WHERE USER_EMAIL = #{user_email} AND WRK_ID = #{wrk_id}
+	</update>
+	
+
+
+<!-- ******************work_push**************** -->
+	<!-- 예약 알림 조회 -->
+	<select id="getWorkReservation" parameterType="work_pushVo" resultType="work_pushVo">
+		SELECT * FROM WORK_PUSH WHERE WRK_RV_ID = #{wrk_rv_id} AND WRK_ID = #{wrk_id} AND PUSH_DEL_FL = 'N'
+	</select>
+	
+	<!-- 예약 알림 생성 -->
+	<insert id="insertWorkReservation" parameterType="work_pushVo">
+		<selectKey resultType="Integer" keyProperty="wrk_rv_id" order="BEFORE">
+			SELECT WRK_RV_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO WORK_PUSH VALUES(#{wrk_rv_id}, #{wrk_id}, #{prj_id}, #{user_email}, #{wrk_dt}, 'N')
+	</insert>
+	
+	<!--  예약알림 삭제 (플래그 업데이트) -->
+	<update id="deleteWorkReservation" parameterType="int">
+		UPDATE WORK_PUSH SET PUSH_DEL_FL = 'Y' WHERE WRK_RV_ID = #{wrk_rv_id}
+	</update>
+
+
+<!-- ******************work_al_mem**************** -->
+	
+	<!-- 예약 알림 생성시 알림 보낼 멤버 insert -->
+	<insert id="insertWorkReservationMem" parameterType="work_al_memVo">
+		INSERT INTO WORK_AL_MEM VALUES(WRK_RV_MEM_SEQ.NEXTVAL, #{prj_id}, #{wrk_rv_id}, #{user_email})
+	</insert>
+
+</mapper>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="filter">
+	<select id="filterList" parameterType="filterVo" resultType="workVo">
+		SELECT  DISTINCT(A.WRK_ID)
+		     ,  A.USER_EMAIL
+		     ,  A.WRK_LST_ID
+		     ,  A.WRK_PR_ID
+		     ,  A.WRK_NM
+		     ,  A.WRK_DT
+		     ,  A.WRK_GRADE
+		     ,  A.WRK_COLOR_CD
+		     ,  A.WRK_START_DT
+		     ,  A.WRK_END_DT
+		     ,  A.WRK_CMP_DT
+		     ,  A.WRK_CMP_FL
+		     ,  A.WRK_DEL_FL
+		     ,	B.WRK_LST_NM
+		     ,	E.PRJ_ID
+		     ,	E.PRJ_NM
+		     ,	F.USER_NM
+		     ,	(CASE
+                 WHEN D.PRJ_MEM_LV = 'LV0' AND E.PRJ_ID = D.PRJ_ID THEN 'AUTH01'
+                 WHEN E.PRJ_AUTH = 'ASC01' AND D.PRJ_MEM_LV = 'LV1' THEN 'AUTH01'
+                 WHEN E.PRJ_AUTH = 'ASC02' AND D.PRJ_MEM_LV = 'LV1' AND (SELECT C.JN_FL FROM WORK_MEM_FLW C WHERE C.WRK_ID = A.WRK_ID AND C.USER_EMAIL = #{user_email}) = 'M' THEN 'AUTH02'
+                 WHEN E.PRJ_AUTH = 'ASC02' AND D.PRJ_MEM_LV = 'LV1' AND (SELECT C.JN_FL FROM WORK_MEM_FLW C WHERE C.WRK_ID = A.WRK_ID AND C.USER_EMAIL = #{user_email}) = 'F' THEN 'AUTH03'
+                 WHEN E.PRJ_AUTH = 'ASC02' AND D.PRJ_MEM_LV = 'LV1' AND (SELECT C.JN_FL FROM WORK_MEM_FLW C WHERE C.WRK_ID = A.WRK_ID AND C.USER_EMAIL = #{user_email}) IS NULL THEN 'AUTH03'
+                 WHEN E.PRJ_AUTH = 'ASC03' AND D.PRJ_MEM_LV = 'LV1' AND (SELECT C.JN_FL FROM WORK_MEM_FLW C WHERE C.WRK_ID = A.WRK_ID AND C.USER_EMAIL = #{user_email}) = 'M' THEN 'AUTH02'
+                 WHEN E.PRJ_AUTH = 'ASC03' AND D.PRJ_MEM_LV = 'LV1' AND (SELECT C.JN_FL FROM WORK_MEM_FLW C WHERE C.WRK_ID = A.WRK_ID AND C.USER_EMAIL = #{user_email}) IN 'F' THEN 'AUTH03'
+                 WHEN E.PRJ_AUTH = 'ASC03' AND D.PRJ_MEM_LV = 'LV1' AND (SELECT C.JN_FL FROM WORK_MEM_FLW C WHERE C.WRK_ID = A.WRK_ID AND C.USER_EMAIL = #{user_email}) IS NULL THEN 'AUTH04'
+                 END) AUTH
+		FROM    WORK A, WORK_LIST B, (SELECT * FROM PROJECT_MEM WHERE USER_EMAIL = #{user_email} AND PRJ_MEM_DEL_FL = 'N')D, PROJECT E, USERS F
+		WHERE	A.WRK_LST_ID = B.WRK_LST_ID
+		AND		B.PRJ_ID = D.PRJ_ID
+		AND		D.PRJ_ID = E.PRJ_ID
+		AND		A.USER_EMAIL = F.USER_EMAIL
+		AND		E.DEL_FL = 'N'
+		AND		A.WRK_DEL_FL = 'N'
+		<if test="wrk_dt != 0">AND </if>
+		<choose>
+			<when test="wrk_dt eq 30">30 &gt;= SYSDATE - A.WRK_DT </when>
+			<when test="wrk_dt eq 60">60 &gt;= SYSDATE - A.WRK_DT </when>
+			<when test="wrk_dt eq 90">90 &gt;= SYSDATE - A.WRK_DT </when>
+		</choose>
+			<if test='wrk_is_mine.equals("mine")'>
+				AND A.WRK_ID IN (SELECT WRK_ID FROM WORK_MEM_FLW C WHERE C.USER_EMAIL = #{user_email} AND C.JN_FL = 'M')  
+			</if>
+		<if test="wrk_i_assigned != null || wrk_i_made != null || wrk_i_following != null">
+		AND(
+			<trim prefix="" prefixOverrides="OR">
+				<if test="wrk_i_assigned != null"> OR A.WRK_ID IN (SELECT WRK_ID FROM WORK_MEM_FLW C WHERE C.JN_FL = 'M' AND C.USER_EMAIL = #{user_email}) </if>
+				<if test="wrk_i_made != null"> OR A.WRK_ID IN (SELECT WRK_ID FROM WORK WHERE USER_EMAIL = #{user_email}) </if>
+				<if test="wrk_i_following != null"> OR A.WRK_ID IN (SELECT WRK_ID FROM WORK_MEM_FLW C WHERE C.JN_FL = 'F' AND C.USER_EMAIL = #{user_email}) </if>
+			</trim>
+		)
+		</if>
+		<if test="prj_id != null">
+			AND B.PRJ_ID = #{prj_id}
+		</if>
+		<if test="prj_id_list != null">
+			AND B.PRJ_ID IN
+			<foreach collection="prj_id_list" item="prj" open="(" close=")" separator=",">
+				#{prj}
+			</foreach>
+		</if>
+		<if test="overdue != null || till_this_week != null || till_this_month != null || no_deadline != null">
+			AND (
+			<trim prefix="" prefixOverrides="OR">
+				<if test="overdue != null">
+					OR ((0 &gt; (A.WRK_END_DT - SYSDATE)) AND A.WRK_CMP_FL = 'N')
+				</if>
+				<if test="till_this_week != null">
+					OR #{td_week} = TO_CHAR(A.WRK_END_DT, 'iw') AND (0 &lt; (A.WRK_END_DT - SYSDATE))
+				</if>
+				<if test="till_this_month != null">
+					OR #{td_month} = TO_CHAR(A.WRK_END_DT, 'MM') AND (0 &lt; (A.WRK_END_DT - SYSDATE))
+				</if>
+				<if test="no_deadline != null">
+					OR A.WRK_END_DT IS NULL
+				</if>
+			</trim>
+			)
+		</if>
+		<if test="is_cmp != null">
+			AND A.WRK_CMP_FL = 'Y'
+		</if>
+		<if test="wrk_maker != null">
+			AND	A.USER_EMAIL IN 
+			<foreach collection="wrk_maker" item="maker" open="(" close=")" separator=",">
+				#{maker}
+			</foreach>
+		</if>
+		<if test="wrk_follower != null">
+				AND (A.WRK_ID IN (SELECT WRK_ID FROM WORK_MEM_FLW C WHERE C.JN_FL = 'F' AND USER_EMAIL IN 
+				<foreach collection="wrk_follower" item="follower" open="(" close=")" separator=",">
+					#{follower}
+				</foreach>
+			))
+		</if>
+		<if test="is_cal != null">
+			AND A.WRK_START_DT IS NOT NULL
+			AND A.WRK_END_DT IS NOT NULL
+		</if>
+		ORDER BY A.WRK_ID
+	</select>
+	
+	<select id="prjIdList" parameterType="filterVo" resultType="projectVo">
+		SELECT	DISTINCT(A.PRJ_ID)
+			 ,	A.PRJ_NM
+		FROM	PROJECT A, PROJECT_MEM B
+		WHERE	A.PRJ_ID = B.PRJ_ID
+		AND		B.USER_EMAIL = #{user_email}
+		AND		B.PRJ_MEM_DEL_FL = 'N'
+		AND		A.DEL_FL = 'N'
+		ORDER BY A.PRJ_ID
+	</select>
+	
+	<select id="makerIdList" parameterType="filterVo" resultType="userVo">
+		SELECT	DISTINCT(B.USER_EMAIL)
+			 ,	A.USER_NM
+		FROM	USERS A, WORK B, WORK_LIST C, (SELECT E.PRJ_ID FROM PROJECT_MEM D, PROJECT E WHERE D.USER_EMAIL = #{user_email}
+		<if test="prj_id != null">
+		AND		D.PRJ_ID = #{prj_id}
+		</if>
+		AND		D.PRJ_ID = E.PRJ_ID
+		AND		E.DEL_FL = 'N'
+		AND		D.PRJ_MEM_DEL_FL = 'N')D
+		WHERE	A.USER_EMAIL = B.USER_EMAIL
+		AND		B.WRK_LST_ID = C.WRK_LST_ID
+		AND		C.PRJ_ID = D.PRJ_ID
+		
+	</select>
+	
+	<select id="followerIdList" parameterType="filterVo" resultType="userVo">
+		SELECT	DISTINCT(B.USER_EMAIL)
+			 ,	A.USER_NM
+		FROM	USERS A, WORK_MEM_FLW B, (SELECT F.PRJ_ID FROM PROJECT_MEM F, PROJECT E WHERE F.USER_EMAIL = #{user_email}
+		<if test="prj_id != null">
+		AND F.PRJ_ID = #{prj_id}
+		</if>
+		AND	F.PRJ_ID = E.PRJ_ID
+		AND E.DEL_FL = 'N'
+		AND	F.PRJ_MEM_DEL_FL = 'N') C
+		WHERE	A.USER_EMAIL = B.USER_EMAIL
+		AND		C.PRJ_ID = B.PRJ_ID
+		AND		B.JN_FL = 'F'
+	</select>
+	
+	<select id="workDetail" parameterType="int" resultType="workVo">
+		SELECT  DISTINCT A.WRK_ID
+		     ,  A.USER_EMAIL
+		     ,  C.WRK_LST_NM
+		     ,  C.PRJ_ID
+		     ,  B.USER_NM
+		     ,  D.PRJ_NM
+		     ,  A.WRK_LST_ID
+		     ,  A.WRK_RV_ID
+		     ,  A.WRK_PR_ID
+		     ,  A.WRK_NM
+		     ,  A.WRK_DT
+		     ,  A.WRK_GRADE
+		     ,  A.WRK_COLOR_CD
+		     ,  A.WRK_START_DT
+		     ,  A.WRK_END_DT
+		     ,  A.WRK_CMP_DT
+		     ,  A.WRK_CMP_FL
+		     ,  A.WRK_DEL_FL
+		FROM    WORK A, USERS B, WORK_LIST C, PROJECT D
+		WHERE   A.WRK_ID = #{wrk_id}
+		AND     A.USER_EMAIL = B.USER_EMAIL
+		AND     A.WRK_LST_ID = C.WRK_LST_ID
+		AND     C.PRJ_ID = D.PRJ_ID
+	</select>
+	<select id="prjList" parameterType="String" resultType="projectVo">
+		SELECT  A.PRJ_ID, A.PRJ_NM
+		FROM    PROJECT A, PROJECT_MEM B
+		WHERE   A.PRJ_ID = B.PRJ_ID
+		AND     B.USER_EMAIL =  #{user_email}
+		AND     A.DEL_FL = 'N'
+	</select>
+	
+	<select id="checkAuth" parameterType="filterVo" resultType="int">
+		SELECT  COUNT(*)
+		FROM    PROJECT A, PROJECT_MEM B
+		WHERE   A.PRJ_ID = B.PRJ_ID
+		AND     B.USER_EMAIL = #{user_email}
+		AND     A.PRJ_ID = #{prj_id}
+		AND     ((B.PRJ_MEM_LV = 'LV0' AND A.PRJ_AUTH IN ('ASC02', 'ASC03')) OR (A.PRJ_AUTH = 'ASC01' ))
+	</select>
+</mapper>
