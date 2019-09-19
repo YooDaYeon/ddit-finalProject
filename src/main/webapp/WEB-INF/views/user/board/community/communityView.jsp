@@ -65,19 +65,16 @@ $(document).ready(function(){
 					html +=	"<td>" + item.user_email + "</td>";
 					html +=	"<td>" + item.writedateString + "</td>";
 					if(item.user_email == data.user_email){
-						html += "<td id='replyBUT'><input type='button' class='inp_style_01' id='deleteReplyBtn' name='" + item.comm_id + "' value='댓글삭제'></td>";
-					
+						html += "<td id='replyBUT'>";
+						html += "<input type='button' class='inp_style_01' ";
+						html += "id='deleteReplyBtn' name='" + item.comm_id + "' value='댓글삭제'></td>";
 					}
 					html += "</tr>";
 					
 				});
-				
-				
 				$("#inputAnswer").html(html);
 			}
-			
 		});
-		
 	};
 	
 	//댓글 등록하면 댓글 수 증가
@@ -162,9 +159,7 @@ $(document).ready(function(){
 				html += "<label>좋아요 " + data.data + "</label>";
 				$("#likeCnt label").html(html);
 			}
-			
 		});
-		
 	}
 	
 	

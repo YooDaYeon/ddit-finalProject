@@ -111,7 +111,6 @@ logger.debug("!@# 나와랏!!!!!!sessionssssss : {}",sessions);
 
 		// protocol: chatting,채팅발신자명, 채팅 내용, 채팅발신자아이디, 채팅방아이디
 		String msg = message.getPayload(); // 내가 받은 메시지 내용
-		System.out.println("msg : " + msg);
 
 		if (StringUtils.isNotEmpty(msg)) { // 메시지가 들어올 때만 처리
 			String[] strs = msg.split(",");
@@ -141,13 +140,6 @@ logger.debug("!@# 나와랏!!!!!!sessionssssss : {}",sessions);
 				// 각 채팅방 멤버들 리스트 아이디
 				List<String> chatMemList = memService.roomFriendListEmail(Integer.parseInt(ct_id));
 
-				for (int i = 0; i < chatMemList.size(); i++) {
-//					System.out.println("chatMemList : " + i + " -- " + chatMemList.get(i));
-				}
-
-//				System.out.println("배열sender : " + senderNm + " content : " + content + " senderId : " + senderId1
-//						+ "ct_id" + ct_id);
-
 				// 각각 채팅방 멤버들 중에서 지금 로그인한 사람에게만 보내려고 지금 로그인한 사람들의 정보를 넣음
 				Map<String, WebSocketSession> nowLoginList = new HashMap<String, WebSocketSession>();
 				for (int i = 0; i < chatMemList.size(); i++) { // 들어온 채팅방 멤버아이디를 조회 해서
@@ -156,21 +148,18 @@ logger.debug("!@# 나와랏!!!!!!sessionssssss : {}",sessions);
 																								// 사람들의 세션 정보를 넣어줌
 					}
 				}
-
 				if ("chatting".equals(chatting) && nowLoginList != null) { // 채팅메시지를 보냈고 채팅방에 해당하는 멤버가 로그인 되어있을 때
 
 					for (String key : nowLoginList.keySet()) { // 지금 로그인한 멤버들의 사이즈만큼 돌려서
 						TextMessage tmpMsg = new TextMessage(senderId1 + "," + senderNm + "," + content + "," + to);
 						System.out.println("tmpMsg : " + tmpMsg);
 
-						// if() { // 나에게는 보내지 않음.
 						nowLoginList.get(key).sendMessage(tmpMsg); // 지금 로그인하고 있는 사용자에 메시지에서 가져온 senderId가 있는지 확인
-						// }
-
 					}
 				}
 
-			} else if (strs != null && strs.length == 3 && strs[0].equals("notify")) {
+			} 
+			else if (strs != null && strs.length == 3 && strs[0].equals("notify")) {
 				String notify = strs[0]; // 알림
 //				String notify_cd = strs[1]; // 알림코드 (N01 : 프로젝트, N02 : 업무알림, N03 : 채팅알림, N04 : 1:1답변)
 				String userNm = strs[1]; // 사용자

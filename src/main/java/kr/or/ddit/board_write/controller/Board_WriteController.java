@@ -371,10 +371,6 @@ public class Board_WriteController {
 				mapAnswerCnt.put(contentList.get(i).getWrite_id(),answerService.replyCnt(contentList.get(i).getWrite_id()));
 			}
 			
-//			resultMap2.put("board_id",boardnum02);
-//			resultMap2.put("boardList", contentList);
-//			resultMap2.put("mapAnswerCnt", mapAnswerCnt);
-//			resultMap2.put("paginationSize", titlePage);
 			model.addAttribute("board_id",boardnum02);
 			model.addAttribute("boardList", contentList);
 			model.addAttribute("mapAnswerCnt", mapAnswerCnt);
